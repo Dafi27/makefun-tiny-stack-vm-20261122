@@ -1,8 +1,5 @@
-// Tiny stack VM for make.fun's tiny-stack-vm-01 ISA (see the kit's ISA.md).
-// Answers every /input/<id>/ program, writing /output/<id>/stdout.bin + exit.txt.
 import { mkdirSync as k, readdirSync as d, readFileSync as f, statSync as s, writeFileSync as w } from 'node:fs';
 import { join as j } from 'node:path';
-
 function run(p, g) {
   const n = p.length, t = new Int32Array(256);
   let a = 0;
@@ -12,52 +9,52 @@ function run(p, g) {
   let l = 0, u = 0, x = 0, z = 0;
   const e = (v) => ({ b: o.subarray(0, l), x: v });
   for (;;) {
-    if (z === 1e6) return e(10); // step limit
-    if (x < 0 || x >= n) return e(9); // pc outside program
+    if (z === 1e6) return e(10);
+    if (x < 0 || x >= n) return e(9);
     const h = p[x];
-    let y = 0; // immediate length
+    let y = 0;
     if (h === 1) y = 1;
     else if (h === 2) y = 4;
     else if (h >= 48 && h <= 51) y = 2;
-    else if (h !== 0 && !(h >= 3 && h <= 7) && !(h >= 16 && h <= 30) && !(h >= 32 && h <= 34) && h !== 52 && h !== 64 && h !== 65 && !(h >= 80 && h <= 83)) return e(5); // unknown opcode
-    if (x + y >= n) return e(9); // immediate cut off by end of program
+    else if (h !== 0 && !(h >= 3 && h <= 7) && !(h >= 16 && h <= 30) && !(h >= 32 && h <= 34) && h !== 52 && h !== 64 && h !== 65 && !(h >= 80 && h <= 83)) return e(5);
+    if (x + y >= n) return e(9);
     z++;
     const v = x + 1 + y;
     x = v;
     switch (h) {
-      case 0: return e(0); // HALT
-      case 1: // PUSH8, sign-extended
+      case 0: return e(0);
+      case 1:
         if (a >= 256) return e(3);
         t[a++] = (p[v - 1] << 24) >> 24;
         break;
-      case 2: // PUSH32, little-endian
+      case 2:
         if (a >= 256) return e(3);
         t[a++] = p[v - 4] | (p[v - 3] << 8) | (p[v - 2] << 16) | (p[v - 1] << 24);
         break;
-      case 3: // POP
+      case 3:
         if (a < 1) return e(2);
         a--;
         break;
-      case 4: // DUP
+      case 4:
         if (a < 1) return e(2);
         if (a >= 256) return e(3);
         t[a] = t[a - 1];
         a++;
         break;
-      case 5: { // SWAP
+      case 5: {
         if (a < 2) return e(2);
         const T = t[a - 1];
         t[a - 1] = t[a - 2];
         t[a - 2] = T;
         break;
       }
-      case 6: // OVER
+      case 6:
         if (a < 2) return e(2);
         if (a >= 256) return e(3);
         t[a] = t[a - 2];
         a++;
         break;
-      case 7: { // ROT (a b c -- b c a)
+      case 7: {
         if (a < 3) return e(2);
         const T = t[a - 3];
         t[a - 3] = t[a - 2];
@@ -65,11 +62,11 @@ function run(p, g) {
         t[a - 1] = T;
         break;
       }
-      case 23: // NEG, wraps
+      case 23:
         if (a < 1) return e(2);
         t[a - 1] = (-t[a - 1]) | 0;
         break;
-      case 27: // NOT
+      case 27:
         if (a < 1) return e(2);
         t[a - 1] = ~t[a - 1];
         break;
@@ -83,37 +80,37 @@ function run(p, g) {
           case 16: r = (A + B) | 0; break;
           case 17: r = (A - B) | 0; break;
           case 18: r = Math.imul(A, B); break;
-          case 19: // DIV, toward zero; -2^31 / -1 stays -2^31
+          case 19:
             if (B === 0) return e(4);
             r = A === -2147483648 && B === -1 ? A : (A / B) | 0;
             break;
-          case 20: // MOD, sign of A
+          case 20:
             if (B === 0) return e(4);
             r = B === -1 ? 0 : (A % B) | 0;
             break;
-          case 21: // DIVU
+          case 21:
             if (B === 0) return e(4);
             r = Math.floor((A >>> 0) / (B >>> 0)) | 0;
             break;
-          case 22: // MODU
+          case 22:
             if (B === 0) return e(4);
             r = ((A >>> 0) % (B >>> 0)) | 0;
             break;
           case 24: r = A & B; break;
           case 25: r = A | B; break;
           case 26: r = A ^ B; break;
-          case 28: r = A << (B & 31); break; // SHL
-          case 29: r = A >> (B & 31); break; // SHR, arithmetic
-          case 30: r = (A >>> (B & 31)) | 0; break; // SHRU, logical
-          case 32: r = A === B ? 1 : 0; break; // EQ
-          case 33: r = A < B ? 1 : 0; break; // LT
-          default: r = (A >>> 0) < (B >>> 0) ? 1 : 0; // LTU
+          case 28: r = A << (B & 31); break;
+          case 29: r = A >> (B & 31); break;
+          case 30: r = (A >>> (B & 31)) | 0; break;
+          case 32: r = A === B ? 1 : 0; break;
+          case 33: r = A < B ? 1 : 0; break;
+          default: r = (A >>> 0) < (B >>> 0) ? 1 : 0;
         }
         a -= 2;
         t[a++] = r;
         break;
       }
-      case 48: case 49: case 50: { // JMP / JZ / JNZ, signed 16-bit offset
+      case 48: case 49: case 50: {
         const R = ((p[v - 2] | (p[v - 1] << 8)) << 16) >> 16;
         let T = true;
         if (h !== 48) {
@@ -124,23 +121,23 @@ function run(p, g) {
         if (T) x = v + R;
         break;
       }
-      case 51: // CALL, unsigned 16-bit target
+      case 51:
         if (q >= 64) return e(7);
         c[q++] = v;
         x = p[v - 2] | (p[v - 1] << 8);
         break;
-      case 52: // RET
+      case 52:
         if (q === 0) return e(8);
         x = c[--q];
         break;
-      case 64: { // LOAD
+      case 64: {
         if (a < 1) return e(2);
         const A = t[a - 1];
         if (A < 0 || A > 255) return e(6);
         t[a - 1] = m[A];
         break;
       }
-      case 65: { // STORE (v addr --)
+      case 65: {
         if (a < 2) return e(2);
         const A = t[a - 1], V = t[a - 2];
         if (A < 0 || A > 255) return e(6);
@@ -148,7 +145,7 @@ function run(p, g) {
         m[A] = V;
         break;
       }
-      case 80: { // PRINT, decimal ASCII
+      case 80: {
         if (a < 1) return e(2);
         const S = String(t[a - 1]);
         if (l + S.length > 65536) return e(11);
@@ -156,22 +153,21 @@ function run(p, g) {
         for (let i = 0; i < S.length; i++) o[l++] = S.charCodeAt(i);
         break;
       }
-      case 81: // PUTC, one byte
+      case 81:
         if (a < 1) return e(2);
         if (l + 1 > 65536) return e(11);
         o[l++] = t[--a] & 255;
         break;
-      case 82: // IN, -1 once input is used up
+      case 82:
         if (a >= 256) return e(3);
         t[a++] = u < g.length ? g[u++] : -1;
         break;
-      case 83: // EXIT, code v AND 255
+      case 83:
         if (a < 1) return e(2);
         return e(t[--a] & 255);
     }
   }
 }
-
 const I = process.env.MAKEFUN_INPUT_DIR ?? '/input';
 const O = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 for (const id of d(I).filter((y) => {
@@ -184,7 +180,6 @@ for (const id of d(I).filter((y) => {
     w(j(D, 'stdout.bin'), r.b);
     w(j(D, 'exit.txt'), r.x + '\n');
   } catch {
-    // One bad instance must not kill the whole set; answer it as a pc trap.
     try {
       k(D, { recursive: true });
       w(j(D, 'stdout.bin'), new Uint8Array(0));
